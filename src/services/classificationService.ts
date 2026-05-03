@@ -1,7 +1,4 @@
-import { GoogleGenAI, Type } from "@google/genai";
 import { ClassificationResult, ClassificationReport, AnalysisFeature } from "../types";
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 /**
  * Extracts basic URL features to be used as antecedents for associative classification.
@@ -119,39 +116,18 @@ export async function detectPhishing(url: string): Promise<ClassificationReport>
     Explain your decision based on the association between these features and common phishing traits.
   `;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: prompt,
-    config: {
-      systemInstruction,
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          result: { type: Type.STRING, enum: Object.values(ClassificationResult) },
-          confidence: { type: Type.NUMBER, description: "Confidence score 0-100" },
-          riskScore: { type: Type.NUMBER, description: "Overall risk percentage 0-100" },
-          advancedFeatures: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                name: { type: Type.STRING },
-                value: { type: Type.STRING },
-                isRisk: { type: Type.BOOLEAN },
-                description: { type: Type.STRING }
-              },
-              required: ["name", "value", "isRisk", "description"]
-            }
-          },
-          reasoning: { type: Type.STRING }
-        },
-        required: ["result", "confidence", "riskScore", "advancedFeatures", "reasoning"]
-      }
-    }
+  // Call the backend API instead of calling Gemini directly
+  const response = await fetch('/api/classify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url, basicFeatures, prompt, systemInstruction })
   });
 
-  const rawData = JSON.parse(response.text);
+  if (!response.ok) {
+    throw new Error('Analysis failed at server level');
+  }
+
+  const rawData = await response.json();
   
   return {
     url,

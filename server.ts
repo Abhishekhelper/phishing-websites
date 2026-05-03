@@ -3,8 +3,12 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 
+import { GoogleGenAI } from "@google/genai";
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const genAI = new GoogleGenAI(process.env.GEMINI_API_KEY || "");
 
 async function startServer() {
   const app = express();
@@ -65,6 +69,50 @@ async function startServer() {
         isRedirected: false,
         isCrossDomainRedirect: false
       });
+    }
+  });
+
+  // API Route for Classification
+  app.post("/api/classify", async (req, res) => {
+    const { url, basicFeatures, prompt, systemInstruction } = req.body;
+    try {
+      const model = genAI.getGenerativeModel({ 
+        model: "gemini-1.5-flash",
+        systemInstruction
+      });
+
+      const result = await model.generateContent({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: "application/json",
+        }
+      });
+
+      res.json(JSON.parse(result.response.text()));
+    } catch (error) {
+      console.error("Classification AI failed:", error);
+      res.status(500).json({ error: "AI analysis failed" });
+    }
+  });
+
+  // API Route for Assistant
+  app.post("/api/assistant", async (req, res) => {
+    const { message, history } = req.body;
+    try {
+      const model = genAI.getGenerativeModel({ 
+        model: "gemini-1.5-flash",
+        systemInstruction: "You are PhishGuard AI, a specialized assistant for E-banking safety. You provide advice on how to detect phishing, secure online bank accounts, and handle suspicious emails. Be technical but accessible. Focus on associative classification concepts when relevant. Keep responses relatively concise."
+      });
+
+      const chat = model.startChat({
+        history: history,
+      });
+
+      const result = await chat.sendMessage(message);
+      res.json({ text: result.response.text() });
+    } catch (error) {
+      console.error("Assistant AI failed:", error);
+      res.status(500).json({ error: "Assistant failed" });
     }
   });
 
