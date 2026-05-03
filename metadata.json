@@ -1,0 +1,6 @@
+{
+  "name": "PhishGuard E-Banking Detector",
+  "description": "A sophisticated tool for detecting e-banking phishing websites using associative classification heuristics and AI analysis.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
